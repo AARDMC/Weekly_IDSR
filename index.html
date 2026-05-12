@@ -452,7 +452,6 @@
 // ==========================================
 // API CONNECTION SETUP (GITHUB TO GOOGLE SHEET)
 // ==========================================
-
 const API_URL = "https://script.google.com/macros/s/AKfycbyfvo2nds6snWL28sterhz9XnUgJXic3EG8upw_d0D13jfusQiPbDUoYXfvyYLnr3OCug/exec";
 
 function callAPI(action, params, onSuccess, onFailure) {
@@ -479,6 +478,7 @@ function callAPI(action, params, onSuccess, onFailure) {
     else msg("Network error. Check connection.", "e");
   });
 }
+
 // ===== CSV PARSER =====
 function parseCSV(str) {
   var result = [];
