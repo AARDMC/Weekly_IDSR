@@ -32,58 +32,52 @@ function formatW(z, w) {
   }
 }
 
-function doGet(e) {
-  return HtmlService.createHtmlOutputFromFile('Index')
-    .setTitle('Addis Ababa PHEM Weekly IDSR Data Entry Form')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1.0');
-}
+// ==========================================
+// API ROUTER (FOR GITHUB PAGES FETCH)
+// ==========================================
+function doGet(e) { return handleAPI(e); }
+function doPost(e) { return handleAPI(e); }
 
-function doPost(e) {
-  if (e && e.parameter && e.parameter.action === 'submit') return handleSubmit(e);
-  if (e && e.parameter && e.parameter.action === 'editRecord') return editRecord(e);
-  return ContentService.createTextOutput(JSON.stringify({status:'error'})).setMimeType(ContentService.MimeType.JSON);
-}
+function handleAPI(e) {
+  try {
+    let params = e.parameter || {};
+    
+    if (e.postData && e.postData.contents) {
+      try {
+        let parsed = JSON.parse(e.postData.contents);
+        params = Object.assign(params, parsed);
+      } catch(err) {}
+    }
 
-function rpcSubmit(data) {
-  try { return JSON.parse(handleSubmit({ parameter: data }).getContent()); } 
-  catch(e) { return { status: 'error', message: e.toString() }; }
-}
+    let action = params.action;
+    
+    if (!action) {
+      return ContentService.createTextOutput(JSON.stringify({status: 'success', message: 'API is running successfully!'}))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    if (action === 'submit') return handleSubmit({ parameter: params });
+    if (action === 'editRecord') return editRecord({ parameter: params });
+    if (action === 'getMetrics') return getMetrics(params.woredaId, params.week, params.facilityName);
+    if (action === 'getSubmitted') return getSubmittedFacilities(params.week);
+    if (action === 'getRecord') return getRecord(params.zone, params.woreda, params.facility, params.week, params.year);
+    if (action === 'getWoredaData') return getWoredaData(params.zone, params.woreda, params.week, params.facility);
+    if (action === 'manualAutoPopulate') return processAutoPopulate(params.week, params.year, params.month);
+    if (action === 'exportWeek') return ContentService.createTextOutput(JSON.stringify({status: 'success', csv: getExportWeekCSV(params.week, params.year, params.zone, params.woreda, params.facility)})).setMimeType(ContentService.MimeType.JSON);
+    if (action === 'exportRange') return ContentService.createTextOutput(JSON.stringify({status: 'success', csv: getExportRangeCSV(params.startWeek, params.endWeek, params.year, params.zone, params.woreda, params.facility)})).setMimeType(ContentService.MimeType.JSON);
 
-function rpcEdit(data) {
-  try { return JSON.parse(editRecord({ parameter: data }).getContent()); } 
-  catch(e) { return { status: 'error', message: e.toString() }; }
-}
-
-function rpcGetMetrics(woredaId, week, facilityName) {
-  try { return JSON.parse(getMetrics(woredaId, week, facilityName).getContent()); } 
-  catch(e) { return { status: 'error' }; }
-}
-
-function rpcGetSubmitted(week) {
-  try { return JSON.parse(getSubmittedFacilities(week).getContent()); } 
-  catch(e) { return { status: 'error', submitted: [] }; }
-}
-
-function rpcGetRecord(zone, woreda, facility, week, year) {
-  try { return JSON.parse(getRecord(zone, woreda, facility, week, year).getContent()); } 
-  catch(e) { return { status: 'error' }; }
-}
-
-function rpcGetWoredaData(zone, woreda, week, facility) {
-  try { return JSON.parse(getWoredaData(zone, woreda, week, facility).getContent()); } 
-  catch(e) { return { status: 'error' }; }
-}
-
-function rpcManualAutoPopulate(week, year, month) {
-  try { 
-    return JSON.parse(processAutoPopulate(week, year, month).getContent()); 
-  } 
-  catch(e) { 
-    return { status: 'error', message: e.toString() }; 
+    return ContentService.createTextOutput(JSON.stringify({status: 'error', message: 'Unknown action: ' + action}))
+      .setMimeType(ContentService.MimeType.JSON);
+      
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({status: 'error', message: err.toString()}))
+      .setMimeType(ContentService.MimeType.JSON);
   }
 }
 
+// ==========================================
+// CORE LOGIC FUNCTIONS
+// ==========================================
 function appendTotalRow(rows, headers) {
   if (!rows || rows.length === 0) return rows;
   
@@ -352,7 +346,6 @@ function getMetrics(woredaId, week, facilityName) {
       let onTimeFacs = new Set();
 
       for (let i = 1; i < sdata.length; i++) {
-        // Skip rows with Completeness === 0 (auto-populated, not yet reported)
         if (compIdx > -1 && parseInt(sdata[i][compIdx]) === 0) continue;
 
         let fac = sdata[i][fIdx]?.toString().trim();
@@ -396,16 +389,13 @@ function getMetrics(woredaId, week, facilityName) {
   }
 }
 
-// Compare function for sorting rows
 function compareRows(a, b) {
   let facA = (a[3] || '').toString().trim();
   let facB = (b[3] || '').toString().trim();
   
-  // Check if facilities are special hospitals
   let isSpecA = SPECIAL_HOSPITALS.includes(facA);
   let isSpecB = SPECIAL_HOSPITALS.includes(facB);
   
-  // If both are special or both are non-special, sort by zone/woreda
   if (isSpecA === isSpecB) {
     let zoneA = (a[1] || '').toString().trim().toLowerCase();
     let zoneB = (b[1] || '').toString().trim().toLowerCase();
@@ -424,7 +414,6 @@ function compareRows(a, b) {
     if (baseA > baseB) return 1;
     if (numA !== numB) return numA - numB;
     
-    // If both are special hospitals, sort alphabetically
     if (isSpecA) {
       if (facA < facB) return -1;
       if (facA > facB) return 1;
@@ -433,7 +422,6 @@ function compareRows(a, b) {
     return 0;
   }
   
-  // Non-special facilities come first, special hospitals go to the end
   return isSpecA ? 1 : -1;
 }
 
@@ -443,7 +431,6 @@ function sortSheet(sheet) {
   const range = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn());
   const values = range.getValues();
   
-  // Check if sorting is needed
   let needsSort = false;
   for (let i = 0; i < values.length - 1; i++) {
     if (compareRows(values[i], values[i + 1]) > 0) {
@@ -456,7 +443,6 @@ function sortSheet(sheet) {
     values.sort(compareRows);
     range.setValues(values);
     
-    // Re-apply formatting after sort
     const backgrounds = [];
     const fontStyles = [];
     const initTimeIdx = getStrictHeaders().indexOf('Initial Submission Time Stamp');
@@ -509,7 +495,6 @@ function handleSubmit(e) {
     }
     
     if (!isNewSheet) {
-      // Only read first 7 columns for duplicate check (fast)
       const lastRow = sheet.getLastRow();
       const existingData = sheet.getRange(1, 1, lastRow, 7).getValues();
       
@@ -520,7 +505,6 @@ function handleSubmit(e) {
             (existingData[i][4] || '').toString().trim() == data.year &&
             (existingData[i][6] || '').toString().trim() == data.week) {
           
-          // Found matching row - read full row to check if auto-populated
           const fullRow = sheet.getRange(i + 1, 1, 1, sheet.getLastColumn()).getValues()[0];
           const initTimeIdx = getStrictHeaders().indexOf('Initial Submission Time Stamp');
           let isAuto = fullRow[initTimeIdx] === "AUTO-POPULATED";
@@ -539,10 +523,7 @@ function handleSubmit(e) {
             }
             const row = buildRowData(rowData, diseaseData, isOnTime, category, initialTime, editedTime);
 
-            // Write the row (overwriting the auto-populated row)
             sheet.getRange(i + 1, 1, 1, row.length).setValues([row]);
-            
-            // Clear the red background since it's now submitted
             sheet.getRange(i + 1, 1, 1, row.length).setBackground(null).setFontStyle('normal');
             
             return ContentService.createTextOutput(JSON.stringify({status:'success',message:'Submitted for Week '+week})).setMimeType(ContentService.MimeType.JSON);
@@ -577,25 +558,21 @@ function handleSubmit(e) {
 
     const row = buildRowData(rowData, diseaseData, isOnTime, category, initialTime, editedTime);
     
-    // Insert at correct sorted position
     if (sheet.getLastRow() > 0) {
       const allData = sheet.getDataRange().getValues();
-      let insertPosition = allData.length + 1; // Default: append at end (1-indexed)
+      let insertPosition = allData.length + 1; 
       
-      // Find where this row should be inserted to maintain sort order
       for (let i = 1; i < allData.length; i++) {
         if (compareRows(row, allData[i]) < 0) {
-          insertPosition = i + 1; // +1 because sheet rows are 1-indexed
+          insertPosition = i + 1;
           break;
         }
       }
       
       if (insertPosition <= allData.length) {
-        // Insert at the correct position
         sheet.insertRowBefore(insertPosition);
         sheet.getRange(insertPosition, 1, 1, row.length).setValues([row]);
       } else {
-        // Append at the end
         sheet.appendRow(row);
       }
     } else {
@@ -955,12 +932,10 @@ function processAutoPopulate(week, year, month) {
         let startRow = sheet.getLastRow() + 1;
         sheet.getRange(startRow, 1, rowsToAppend.length, rowsToAppend[0].length).setValues(rowsToAppend);
         
-        // Apply red background + italic to auto-populated rows
         sheet.getRange(startRow, 1, rowsToAppend.length, rowsToAppend[0].length)
              .setBackground('#fee2e2')
              .setFontStyle('italic');
         
-        // Sort entire sheet to maintain correct order
         sortSheet(sheet);
     }
 
