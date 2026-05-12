@@ -453,10 +453,10 @@
 // API CONNECTION SETUP (GITHUB TO GOOGLE SHEET)
 // ==========================================
 // ⚠️ እዚህ ቦታ ላይ አዲሱን የ Google Web App URL ኮፒ አድርገህ አስገባ ⚠️
-const API_URL = "YOUR_WEB_APP_URL_HERE";
+const API_URL = "https://script.google.com/macros/s/AKfycbyfvo2nds6snWL28sterhz9XnUgJXic3EG8upw_d0D13jfusQiPbDUoYXfvyYLnr3OCug/exec";
 
 function callAPI(action, params, onSuccess, onFailure) {
-  if (!API_URL || API_URL === "YOUR_WEB_APP_URL_HERE") {
+  if (!API_URL || API_URL === "https://script.google.com/macros/s/AKfycbyfvo2nds6snWL28sterhz9XnUgJXic3EG8upw_d0D13jfusQiPbDUoYXfvyYLnr3OCug/exec") {
     msg("API URL is missing! Please add it in the code.", "e");
     if (onFailure) onFailure({message: "API URL missing"});
     return;
