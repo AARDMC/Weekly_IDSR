@@ -452,7 +452,7 @@
 // ==========================================
 // API CONNECTION SETUP (GITHUB TO GOOGLE SHEET)
 // ==========================================
-// ⚠️ አዲሱን ሊንክህን እዚህ አስገባ
+// ⚠️ የድሮውን ትክክለኛ የጎግል ሊንክ እዚህ ጋር አስገባ ⚠️
 const API_URL = "https://script.google.com/macros/s/AKfycbyfvo2nds6snWL28sterhz9XnUgJXic3EG8upw_d0D13jfusQiPbDUoYXfvyYLnr3OCug/exec";
 
 function callAPI(action, params, onSuccess, onFailure) {
@@ -464,15 +464,10 @@ function callAPI(action, params, onSuccess, onFailure) {
   
   params.action = action;
   
-  // ዳታውን ጎግል ወደማይከለክለው ፎርማት (Form Data) መቀየር
-  const formData = new URLSearchParams();
-  for (const key in params) {
-    formData.append(key, params[key]);
-  }
-  
   fetch(API_URL, {
     method: 'POST',
-    body: formData
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(params)
   })
   .then(response => response.json())
   .then(data => {
@@ -1188,7 +1183,11 @@ function loadExistingRecord(fname){
 }
 
 function loadMetrics(queryId, week, facName){
-  callAPI('getMetrics', {woredaId: queryId, week: week, facilityName: facName}, function(data) {
+  // በሁለቱም ሞዶች Metrics ከ Google Sheet በትክክል እንዲያመጣ (Sync እንዲያደርግ) የተጨመረ
+  let params = { woredaId: queryId, week: week };
+  if (facName) params.facilityName = facName;
+  
+  callAPI('getMetrics', params, function(data) {
     if(data.status==='success'){
       document.getElementById('agg_exp_total').textContent=data.expected.totalExpected||0;
       document.getElementById('agg_rep_total').textContent=data.reported.totalReported||0;
@@ -1218,6 +1217,8 @@ function loadMetrics(queryId, week, facName){
       } else {
         summaryBar.classList.remove('success-100');
       }
+    } else {
+      console.error("Metrics load error:", data.message);
     }
   });
 }
