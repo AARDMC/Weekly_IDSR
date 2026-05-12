@@ -448,8 +448,38 @@
   </div>
 </div>
 
-  
 <script>
+// ==========================================
+// API CONNECTION SETUP (GITHUB TO GOOGLE SHEET)
+// ==========================================
+// ⚠️ እዚህ ቦታ ላይ አዲሱን የ Google Web App URL ኮፒ አድርገህ አስገባ ⚠️
+const API_URL = "YOUR_WEB_APP_URL_HERE";
+
+function callAPI(action, params, onSuccess, onFailure) {
+  if (!API_URL || API_URL === "YOUR_WEB_APP_URL_HERE") {
+    msg("API URL is missing! Please add it in the code.", "e");
+    if (onFailure) onFailure({message: "API URL missing"});
+    return;
+  }
+  
+  params.action = action;
+  
+  fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(params)
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (onSuccess) onSuccess(data);
+  })
+  .catch(error => {
+    console.error("API Error:", error);
+    if (onFailure) onFailure(error);
+    else msg("Network error. Check connection.", "e");
+  });
+}
+
 // ===== CSV PARSER =====
 function parseCSV(str) {
   var result = [];
@@ -703,7 +733,7 @@ function triggerManualAutoPopulate() {
   btn.textContent = 'Processing...';
   btn.disabled = true;
 
-  google.script.run.withSuccessHandler(function(res){
+  callAPI('manualAutoPopulate', {week: epiW, year: epiY, month: epiM}, function(res) {
       btn.innerHTML = origText;
       btn.disabled = false;
       if(res.status === 'success') {
@@ -719,11 +749,11 @@ function triggerManualAutoPopulate() {
       } else {
           msg('Error: ' + res.message, 'e');
       }
-  }).withFailureHandler(function(err){
+  }, function(err) {
       btn.innerHTML = origText;
       btn.disabled = false;
       msg('Server Error: ' + err.message, 'e');
-  }).rpcManualAutoPopulate(epiW, epiY, epiM);
+  });
 }
 
 function toggleMode(){
@@ -928,26 +958,6 @@ function onFacilityChangeFM(){
   document.getElementById('editBtn').disabled = true;
 }
 
-function resetFacilityMode(){
-  document.getElementById('zff').value = '';
-  document.getElementById('wff').value = '';
-  document.getElementById('fsf').innerHTML = '<option value="">Select Facility</option>';
-  document.getElementById('fsf').disabled = true;
-  document.getElementById('phoneHint').innerHTML = 'Type a registered Facility ID';
-  document.getElementById('phoneHint').className = 'phone-hint';
-  facilityModeFacilities = [];
-  facilityModeCurrentFacility = '';
-  facilityModeCurrentZone = '';
-  facilityModeCurrentWoreda = '';
-  facilityModeCurrentCategory = '';
-  facilityModeIsHealthCenter = false;
-  currentCategory = '';
-  isHealthCenter = false;
-  currentZone = '';
-  currentWoreda = '';
-  resetAll();
-}
-
 function loadFacilities(){
   fetch('https://docs.google.com/spreadsheets/d/1H35dwM2pQO6pdycz-HcOKXiVlL10GXZX9Vvme4CLzQE/gviz/tq?tqx=out:csv&sheet=MFR%20Facility%20List')
   .then(function(r){ return r.text(); })
@@ -994,12 +1004,12 @@ function loadFacilities(){
 }
 
 function loadSubmittedFacilities(){
-  google.script.run.withSuccessHandler(function(data){
+  callAPI('getSubmitted', {week: epiW}, function(data) {
     if(data.status==='success') {
-      submittedFacilities=data.submitted||[];
+      submittedFacilities = data.submitted || [];
       if(currentWoredaId) populateFacilityDropdown();
     }
-  }).rpcGetSubmitted(epiW);
+  });
 }
 
 function getCategory(type, owner, name) {
@@ -1139,7 +1149,7 @@ function onFacilityChange(){
 }
 
 function loadExistingRecord(fname){
-  google.script.run.withSuccessHandler(function(data){
+  callAPI('getRecord', {zone: currentZone, woreda: currentWoreda, facility: fname, week: epiW, year: epiY}, function(data) {
     if(data.status==='success') {
       let r = data.record;
       sel = {};
@@ -1169,11 +1179,11 @@ function loadExistingRecord(fname){
         }
       }
     }
-  }).rpcGetRecord(currentZone, currentWoreda, fname, epiW, epiY);
+  });
 }
 
 function loadMetrics(queryId, week, facName){
-  google.script.run.withSuccessHandler(function(data){
+  callAPI('getMetrics', {woredaId: queryId, week: week, facilityName: facName}, function(data) {
     if(data.status==='success'){
       document.getElementById('agg_exp_total').textContent=data.expected.totalExpected||0;
       document.getElementById('agg_rep_total').textContent=data.reported.totalReported||0;
@@ -1204,7 +1214,7 @@ function loadMetrics(queryId, week, facName){
         summaryBar.classList.remove('success-100');
       }
     }
-  }).rpcGetMetrics(queryId, week, facName);
+  });
 }
 
 function resetAll(){
@@ -1263,7 +1273,7 @@ function viewData() {
   
   msg('Fetching Data...', 'i');
   
-  google.script.run.withSuccessHandler(function(res){
+  callAPI('getWoredaData', {zone: currentZone, woreda: currentWoreda, week: epiW, facility: fac}, function(res) {
     if(res.status === 'success') {
       let thead = document.getElementById('viewDataHead');
       let tbody = document.getElementById('viewDataBody');
@@ -1305,7 +1315,7 @@ function viewData() {
     } else {
       msg('Error fetching data from sheet.', 'e');
     }
-  }).rpcGetWoredaData(currentZone, currentWoreda, epiW, fac);
+  });
 }
 
 function saveInputs() {
@@ -1608,10 +1618,8 @@ function validateMalariaForSubmission() {
 function validateMalariaData() {
   if (!sel['malaria']) return;
   
-  // Use strict validation for real-time feedback
   var error = validateMalariaStrict();
   if (error) {
-    // Show only first line for toast
     var firstLine = error.split('\n')[0];
     return msg(firstLine, 'e');
   }
@@ -1739,13 +1747,11 @@ function sub(){
   if(!noCases&&!Object.keys(sel).length)return msg('Select diseases or choose No Cases','e');
 
   if(!noCases) {
-    // Validate other names
     var otherErrors = validateOtherNamesForSubmission();
     if (otherErrors.length > 0) {
       return msg(otherErrors.join(' '), 'e');
     }
     
-    // STRICT MALARIA VALIDATION - REJECT if confirmed > total or suspected < total
     if (sel['malaria']) {
       var strictError = validateMalariaStrict();
       if (strictError) {
@@ -1803,7 +1809,6 @@ function sub(){
     }
   }
 
-  // Warning-level malaria validation (only if strict checks passed)
   if(!noCases && sel['malaria']) {
     var malariaWarnings = validateMalariaForSubmission();
     if (malariaWarnings) {
@@ -1865,7 +1870,9 @@ function proceedWithSubmission(f, noCases) {
 
   document.getElementById('submitBtn').disabled = true;
 
-  const callback = function(result) {
+  let action = isEditMode ? 'editRecord' : 'submit';
+  
+  callAPI(action, payload, function(result) {
     if(result.status==='success'){
       msg((isEditMode ? 'SUCCESSFULLY UPDATED' : 'SUCCESSFULLY SUBMITTED') + ' FOR WEEK ' + epiW,'s');
       lastSubmittedFacility=f;
@@ -1891,18 +1898,10 @@ function proceedWithSubmission(f, noCases) {
       msg('ERROR: ' + (result.message||'Unknown Error'),'e');
       document.getElementById('submitBtn').disabled=false;
     }
-  };
-
-  const failureCallback = function(error) {
+  }, function(error) {
     msg('SERVER ERROR: ' + error.message, 'e');
     document.getElementById('submitBtn').disabled=false;
-  };
-
-  if (isEditMode) {
-    google.script.run.withSuccessHandler(callback).withFailureHandler(failureCallback).rpcEdit(payload);
-  } else {
-    google.script.run.withSuccessHandler(callback).withFailureHandler(failureCallback).rpcSubmit(payload);
-  }
+  });
 }
 
 function showExportSingle(){document.getElementById('exportPanelRange').classList.remove('show');document.getElementById('exportPanelSingle').classList.toggle('show');}
@@ -1948,7 +1947,8 @@ function doExportWeek(btn){
     btn.style.color = '#fff';
   }
 
-  google.script.run.withSuccessHandler(function(csv){
+  callAPI('exportWeek', {week: w, year: y, zone: currentZone, woreda: currentWoreda, facility: fac}, function(res) {
+    let csv = res.csv;
     if(!csv) {
        if(btn){ btn.textContent = 'Download CSV'; btn.style.backgroundColor = 'rgba(255,255,255,0.15)'; btn.style.borderColor = 'rgba(255,255,255,0.4)'; }
        return msg('No data found for this Week ' + w,'e');
@@ -1994,7 +1994,7 @@ function doExportWeek(btn){
          btn.style.borderColor = 'rgba(255,255,255,0.4)';
       }, 3000);
     }
-  }).getExportWeekCSV(w, y, currentZone, currentWoreda, fac);
+  });
 }
 
 function doExportRange(btn){
@@ -2023,7 +2023,8 @@ function doExportRange(btn){
     btn.style.color = '#fff';
   }
 
-  google.script.run.withSuccessHandler(function(csv){
+  callAPI('exportRange', {startWeek: sw, endWeek: ew, year: y, zone: currentZone, woreda: currentWoreda, facility: fac}, function(res) {
+    let csv = res.csv;
     if(!csv) {
        if(btn){ btn.textContent = 'Download CSV'; btn.style.backgroundColor = 'rgba(255,255,255,0.15)'; btn.style.borderColor = 'rgba(255,255,255,0.4)'; }
        return msg('No data found for this range','e');
@@ -2069,7 +2070,7 @@ function doExportRange(btn){
          btn.style.borderColor = 'rgba(255,255,255,0.4)';
       }, 3000);
     }
-  }).getExportRangeCSV(sw, ew, y, currentZone, currentWoreda, fac);
+  });
 }
 
 function msg(t, type) {
