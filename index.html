@@ -452,6 +452,10 @@
 // ==========================================
 // API CONNECTION SETUP (GITHUB TO GOOGLE SHEET)
 // ==========================================
+// ==========================================
+// API CONNECTION SETUP (GITHUB TO GOOGLE SHEET)
+// ==========================================
+// ⚠️ አዲሱን ሊንክህን እዚህ አስገባ
 const API_URL = "https://script.google.com/macros/s/AKfycbyfvo2nds6snWL28sterhz9XnUgJXic3EG8upw_d0D13jfusQiPbDUoYXfvyYLnr3OCug/exec";
 
 function callAPI(action, params, onSuccess, onFailure) {
@@ -463,10 +467,15 @@ function callAPI(action, params, onSuccess, onFailure) {
   
   params.action = action;
   
+  // ዳታውን ጎግል ወደማይከለክለው ፎርማት (Form Data) መቀየር
+  const formData = new URLSearchParams();
+  for (const key in params) {
+    formData.append(key, params[key]);
+  }
+  
   fetch(API_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(params)
+    body: formData
   })
   .then(response => response.json())
   .then(data => {
