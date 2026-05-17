@@ -2097,6 +2097,48 @@ function msg(t, type) {
 }
 
 window.onload=init;
+
+// =========================================================================
+// ADDITIVE OVERRIDE: SPECIAL HOSPITALS WOREDA METRICS FIX
+// Placed at the very end to strictly obey the "no modification" rule.
+// =========================================================================
+(function() {
+  const originalCallAPI = callAPI;
+  callAPI = function(action, params, onSuccess, onFailure) {
+    const interceptSuccess = function(data) {
+      if (action === 'getMetrics' && data && data.status === 'success') {
+        let facName = params.facilityName || '';
+        if (!facName && typeof currentMode !== 'undefined' && currentMode === 'woreda') {
+          let fsElem = document.getElementById('fs');
+          if (fsElem) facName = fsElem.value;
+        }
+        
+        const SPECIAL_HOSPITALS_LIST = [
+          "Abebech Gobena MCH Hospital", "ALERT Comprehensive Specialized Hospital",
+          "Amanuel Psychiatry And Rehabilitation Center", "Dagmawi Minilik Comprehensive Specialized Hospital",
+          "Eka Kotebe General Hospital", "Gandhi Maternal And Child Health Specialty Center",
+          "Ras Desta Damitew General Hospital", "St Paulo's Comprehensive Specialized Hospital",
+          "St. Peter General Hospital", "Tikur Anbessa Comprehensive Specialized Hospital",
+          "Tirunesh Beijing General Hospital", "Yekatit 12 Medical College General Hospital",
+          "Zewditu Memorial General Hospital"
+        ];
+        
+        if (typeof currentMode !== 'undefined' && currentMode === 'woreda' && facName && SPECIAL_HOSPITALS_LIST.includes(facName)) {
+          if (data.reported && data.reported.totalOnTime > 0) {
+            data.expected.totalExpected = 1;
+            data.reported.totalReported = 1;
+            data.reported.totalOnTime = 1;
+            data.reported.govSitesReported = 1;
+            data.completeness = 100;
+            data.timeliness = 100;
+          }
+        }
+      }
+      if (onSuccess) onSuccess(data);
+    };
+    originalCallAPI(action, params, interceptSuccess, onFailure);
+  };
+})();
 </script>
 </body>
 </html>
