@@ -612,7 +612,7 @@ const ID_MAP = {
   'Hypertention_new_Total_Cases': 'hypertension_t', 'Hypertention_new_OutP_Cases': 'hypertension_o', 'Hypertention_new_InP_Cases': 'hypertension_i', 'Hypertention_new_InP_Deaths': 'hypertension_d',
   'Tuberculosis_new_Total_Cases': 'tb_t', 'Tuberculosis_new_OutP_Cases': 'tb_o', 'Tuberculosis_new_InP_Cases': 'tb_i', 'Tuberculosis_new_InP_Deaths': 'tb_d',
   'AFP_Polio_Cases': 'afp_c', 'AFP_Polior_Deaths': 'afp_d',
-  'Anthrax_Cases': 'anthrax_c', 'Anthrax_Deaths': 'anthrax_d', 'Cholera_Cases': 'cholera_c', 'Cholera_Deaths': 'cholera_d',
+  'Anthrax_Cases': 'anthrax_c', 'Anthrax_Deaths': 'cholera_d',
   'Dracuncunculiasis_Guinea_worm_Cases': 'guinea_c', 'Dracunculiasis_Guinea_worm_Deaths': 'guinea_d',
   'Chikungunya_Total_Cases': 'chikungunya_t', 'Chikungunya_OutP_Cases': 'chikungunya_o', 'Chikungunya_InP_Cases': 'chikungunya_i', 'Chikungunya_InP_Deaths': 'chikungunya_d',
   'AEFI_Total_Cases': 'aefi_t', 'AEFI_OutP_Cases': 'aefi_o', 'AEFI_InP_Cases': 'aefi_i', 'AEFI_InP_Deaths': 'aefi_d',
@@ -1014,12 +1014,19 @@ function loadSubmittedFacilities(){
 }
 
 function getCategory(type, owner, name) {
-  var o = (owner || '').toLowerCase();
-  var n = (name || '').toLowerCase();
-  if (type === 'Health Post' && o === 'public/government') return 'gov_hp';
-  if (type === 'Health Center' && o === 'public/government') return 'gov_hc';
-  if ((type === 'Hospital' && (o === 'public/government' || o === 'other government')) || n.includes('gandhi')) return 'gov_hosp';
-  if (o === 'private for not profit' || o === 'private not for profit') return 'ngo';
+  var t = (type || '').toString().trim().toLowerCase();
+  var o = (owner || '').toString().trim().toLowerCase();
+  var n = (name || '').toString().toLowerCase();
+
+  // Use .includes() to catch "Health center", "HEALTH CENTER", etc.
+  if (t.includes('health post') && o === 'public/government') return 'gov_hp';
+  if (t.includes('health center') && o === 'public/government') return 'gov_hc';
+  
+  // Explicitly catch ALERT and Gandhi, and allow "other government"
+  if ((t.includes('hospital') && (o === 'public/government' || o === 'other government')) || n.includes('gandhi') || n.includes('alert')) return 'gov_hosp';
+  
+  if (o.includes('not for profit')) return 'ngo';
+  
   return 'other';
 }
 
