@@ -2146,6 +2146,71 @@ window.onload=init;
     originalCallAPI(action, params, interceptSuccess, onFailure);
   };
 })();
+
+// =========================================================================
+// ADDITIVE OVERRIDE: CBES REPORT BUTTON INJECTION
+// =========================================================================
+(function() {
+  var toggleRow = document.querySelector('.toggle-row');
+  if (toggleRow) {
+    var cbesBtn = document.createElement('a');
+    cbesBtn.id = 'cbesBtn';
+    cbesBtn.href = 'https://aardmc.github.io/CBES_Notifications/';
+    cbesBtn.target = '_blank';
+    cbesBtn.textContent = 'CBES Report';
+    cbesBtn.className = 'btn p';
+    cbesBtn.style.marginLeft = 'auto';
+    cbesBtn.style.display = 'none';
+    cbesBtn.style.padding = '6px 14px';
+    cbesBtn.style.fontSize = '13px';
+    cbesBtn.style.textDecoration = 'none';
+    cbesBtn.style.whiteSpace = 'nowrap';
+    toggleRow.appendChild(cbesBtn);
+    
+    function updateCbesBtn() {
+      var isCases = false;
+      var ctInput = document.querySelector('input[name="ct"]:checked');
+      if (ctInput) {
+        isCases = ctInput.value === 'cases';
+      }
+      if (isCases && typeof sel !== 'undefined' && sel['community'] !== undefined && isHealthCenter) {
+        cbesBtn.style.display = 'inline-block';
+      } else {
+        cbesBtn.style.display = 'none';
+      }
+    }
+
+    var origRenderCards = window.renderCards;
+    window.renderCards = function() {
+      if (origRenderCards) origRenderCards();
+      updateCbesBtn();
+    };
+
+    var origTog = window.tog;
+    window.tog = function() {
+      if (origTog) origTog();
+      updateCbesBtn();
+    };
+
+    var origResetDiseases = window.resetDiseases;
+    window.resetDiseases = function() {
+      if (origResetDiseases) origResetDiseases();
+      updateCbesBtn();
+    };
+    
+    var origOnFacilityChange = window.onFacilityChange;
+    window.onFacilityChange = function() {
+      if (origOnFacilityChange) origOnFacilityChange();
+      updateCbesBtn();
+    };
+
+    var origOnFacilityChangeFM = window.onFacilityChangeFM;
+    window.onFacilityChangeFM = function() {
+      if (origOnFacilityChangeFM) origOnFacilityChangeFM();
+      updateCbesBtn();
+    };
+  }
+})();
 </script>
 </body>
 </html>
