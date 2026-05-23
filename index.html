@@ -2151,20 +2151,49 @@ window.onload=init;
 // ADDITIVE OVERRIDE: CBES REPORT BUTTON INJECTION
 // =========================================================================
 (function() {
+  // Inject modern custom styling for the CBES Button
+  var style = document.createElement('style');
+  style.textContent = `
+    #cbesBtn {
+      margin-left: auto;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #ffffff;
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      border: none;
+      text-decoration: none;
+      white-space: nowrap;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      display: none;
+      align-items: center;
+      gap: 6px;
+      height: fit-content;
+      width: fit-content;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+    #cbesBtn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+      background: linear-gradient(135deg, #4338ca, #6d28d9);
+    }
+    #cbesBtn svg {
+      width: 14px;
+      height: 14px;
+    }
+  `;
+  document.head.appendChild(style);
+
   var toggleRow = document.querySelector('.toggle-row');
   if (toggleRow) {
     var cbesBtn = document.createElement('a');
     cbesBtn.id = 'cbesBtn';
     cbesBtn.href = 'https://aardmc.github.io/CBES_Notifications/';
     cbesBtn.target = '_blank';
-    cbesBtn.textContent = 'CBES Report';
-    cbesBtn.className = 'btn p';
-    cbesBtn.style.marginLeft = 'auto';
-    cbesBtn.style.display = 'none';
-    cbesBtn.style.padding = '6px 14px';
-    cbesBtn.style.fontSize = '13px';
-    cbesBtn.style.textDecoration = 'none';
-    cbesBtn.style.whiteSpace = 'nowrap';
+    cbesBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg> CBES Report';
+    
     toggleRow.appendChild(cbesBtn);
     
     function updateCbesBtn() {
@@ -2174,7 +2203,7 @@ window.onload=init;
         isCases = ctInput.value === 'cases';
       }
       if (isCases && typeof sel !== 'undefined' && sel['community'] !== undefined && isHealthCenter) {
-        cbesBtn.style.display = 'inline-block';
+        cbesBtn.style.display = 'inline-flex';
       } else {
         cbesBtn.style.display = 'none';
       }
