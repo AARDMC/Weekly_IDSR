@@ -4,7 +4,7 @@ const FACILITY_SHEET_ID = "1H35dwM2pQO6pdycz-HcOKXiVlL10GXZX9Vvme4CLzQE";
 const SPECIAL_HOSPITALS = [
   "Abebech Gobena MCH Hospital",
   "ALERT Comprehensive Specialized Hospital",
-  "Amanuel Mental Specialized Hospital",
+  "Amanuel Psychiatry And Rehabilitation Center",
   "Dagmawi Minilik Comprehensive Specialized Hospital",
   "Eka Kotebe General Hospital",
   "Gandhi Maternal And Child Health Specialty Center",
@@ -137,7 +137,7 @@ function getExportWeekCSV(week, year, zone, woreda, facility) {
     const headers = data[0];
     const specialMap = getSpecialHospitalMap();
     let filteredRows = [];
-    let formattedSearchWoreda = formatW(zone, woreda);
+    let formattedSearchWoreda = (zone && woreda) ? formatW(zone, woreda) : "";
     let isSpecial = facility && SPECIAL_HOSPITALS.includes(facility);
 
     for (let i = 1; i < data.length; i++) {
@@ -150,11 +150,14 @@ function getExportWeekCSV(week, year, zone, woreda, facility) {
             filteredRows.push([...data[i]]);
          }
       } else {
-         if (specialMap[fName]) {
-            z = specialMap[fName].zone;
-            w = formatW(z, specialMap[fName].woreda);
-         }
-         if (z === zone && w === formattedSearchWoreda) {
+         // Skip special hospitals so they don't bleed into regular woreda exports
+         if (SPECIAL_HOSPITALS.includes(fName)) continue;
+         
+         let matchZone = !zone || z === zone;
+         let matchWoreda = !woreda || w === formattedSearchWoreda;
+         let matchFacility = !facility || fName === facility;
+
+         if (matchZone && matchWoreda && matchFacility) {
            let rowCopy = [...data[i]];
            rowCopy[1] = z; 
            rowCopy[2] = w; 
@@ -177,7 +180,7 @@ function getExportRangeCSV(startWeek, endWeek, year, zone, woreda, facility) {
     let filteredRows = [];
     let headers = [];
     const specialMap = getSpecialHospitalMap();
-    let formattedSearchWoreda = formatW(zone, woreda);
+    let formattedSearchWoreda = (zone && woreda) ? formatW(zone, woreda) : "";
     let isSpecial = facility && SPECIAL_HOSPITALS.includes(facility);
     
     for (let w = parseInt(startWeek); w <= parseInt(endWeek); w++) {
@@ -196,11 +199,14 @@ function getExportRangeCSV(startWeek, endWeek, year, zone, woreda, facility) {
                 filteredRows.push([...data[i]]);
              }
           } else {
-             if (specialMap[fName]) {
-                 z = specialMap[fName].zone;
-                 wor = formatW(z, specialMap[fName].woreda);
-             }
-             if (z === zone && wor === formattedSearchWoreda) {
+             // Skip special hospitals so they don't bleed into regular woreda exports
+             if (SPECIAL_HOSPITALS.includes(fName)) continue;
+
+             let matchZone = !zone || z === zone;
+             let matchWoreda = !woreda || wor === formattedSearchWoreda;
+             let matchFacility = !facility || fName === facility;
+
+             if (matchZone && matchWoreda && matchFacility) {
                let rowCopy = [...data[i]];
                rowCopy[1] = z; 
                rowCopy[2] = wor; 
@@ -379,6 +385,15 @@ function getMetrics(woredaId, week, facilityName) {
     completeness = Math.min(100, completeness);
     timeliness = Math.min(100, timeliness);
 
+    if (facilityName && SPECIAL_HOSPITALS.includes(facilityName) && reported.totalOnTime > 0) {
+        expected.totalExpected = 1;
+        reported.totalReported = 1;
+        reported.totalOnTime = 1;
+        reported.govSitesReported = 1;
+        completeness = 100;
+        timeliness = 100;
+    }
+
     return ContentService.createTextOutput(JSON.stringify({
       status:'success', expected, reported,
       completeness: completeness,
@@ -461,9 +476,36 @@ function sortSheet(sheet) {
   }
 }
 
+function fixZoneWoreda(data) {
+  if (!data.zone || data.zone === 'null' || data.zone === 'undefined' || 
+      !data.woreda || data.woreda === 'null' || data.woreda === 'undefined') {
+    if (data.woredaId) {
+      try {
+        const facSheet = SpreadsheetApp.openById(FACILITY_SHEET_ID).getSheetByName('MFR Facility List');
+        const facData = facSheet.getDataRange().getValues();
+        const fheaders = facData[0];
+        const cid = fheaders.indexOf('Woreda ID');
+        const cz = fheaders.indexOf('Zone');
+        const cw = fheaders.indexOf('Woreda');
+        
+        for (let i = 1; i < facData.length; i++) {
+          if (facData[i][cid]?.toString().trim() === data.woredaId.toString().trim()) {
+            data.zone = facData[i][cz]?.toString().trim();
+            data.woreda = facData[i][cw]?.toString().trim();
+            break;
+          }
+        }
+      } catch(e) {}
+    }
+  }
+}
+
 function handleSubmit(e) {
   try {
     const data = e.parameter;
+    
+    fixZoneWoreda(data);
+
     const week = data.week || '1', facility = data.facility || '', woredaId = data.woredaId || '', category = data.category || 'other';
     if (!facility || !woredaId) return ContentService.createTextOutput(JSON.stringify({status:'error',message:'Missing fields'})).setMimeType(ContentService.MimeType.JSON);
     
@@ -701,10 +743,9 @@ function getWoredaData(zone, woreda, week, facility) {
       if (isSpecial) {
          if (fName === facility) rows.push([...data[i]]);
       } else {
-         if (specialMap[fName]) {
-            z = specialMap[fName].zone;
-            w = formatW(z, specialMap[fName].woreda);
-         }
+         // Skip special hospitals so they don't bleed into regular woreda views
+         if (SPECIAL_HOSPITALS.includes(fName)) continue;
+         
          if (z === zone && w === formattedSearchWoreda) {
            let rowCopy = [...data[i]];
            rowCopy[1] = z; 
@@ -727,6 +768,9 @@ function getWoredaData(zone, woreda, week, facility) {
 function editRecord(e) {
   try {
     const data = e.parameter;
+    
+    fixZoneWoreda(data);
+
     const week = data.week, facility = data.facility;
     const sheet = SpreadsheetApp.openById(DATA_SHEET_ID).getSheetByName("Week " + week);
     if (!sheet) return ContentService.createTextOutput(JSON.stringify({status:'error'})).setMimeType(ContentService.MimeType.JSON);
@@ -883,18 +927,22 @@ function processAutoPopulate(week, year, month) {
         if (submittedSet.has(key)) continue;
         if (existingSet.has(key)) continue;
 
-        let typeClean = (type || '').trim();
-        let ownerClean = (owner || '').trim().toLowerCase();
+        let typeClean = (type || '').toString().trim().toLowerCase();
+        let ownerClean = (owner || '').toString().trim().toLowerCase();
+        let nameClean = (fName || '').toString().toLowerCase();
         
         let exp_hp = 0, exp_hc = 0, exp_hosp = 0, exp_ngo = 0, exp_other = 0;
         
-        if (typeClean === "Health Center" && ownerClean === "public/government") {
+        // Use inclusive matching to mirror the frontend
+        if (typeClean.includes("health post") && ownerClean === "public/government") {
+            exp_hp = 1;
+        } else if (typeClean.includes("health center") && ownerClean === "public/government") {
             exp_hc = 1;
-        } else if (typeClean === "Hospital" && ownerClean === "public/government") {
+        } else if ((typeClean.includes("hospital") && (ownerClean === "public/government" || ownerClean === "other government")) || nameClean.includes('gandhi') || nameClean.includes('alert')) {
             exp_hosp = 1;
-        } else if (typeClean !== "Hospital" && typeClean !== "Health Center" && ownerClean === "private not for profit") {
+        } else if (ownerClean.includes("not for profit")) {
             exp_ngo = 1;
-        } else if (typeClean !== "Hospital" && typeClean !== "Health Center" && ownerClean !== "private not for profit" && ownerClean === "private for profit") {
+        } else {
             exp_other = 1;
         }
 
