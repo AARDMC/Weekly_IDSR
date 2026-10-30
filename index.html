@@ -828,7 +828,7 @@ function validatePhone(){
     if(matchedFacs.length > 0){
       var operationalFacs = matchedFacs.filter(function(f){ return f.status.toLowerCase() === 'operational'; });
       if(operationalFacs.length > 0){
-        hint.innerHTML = svgValid + ' <a href="https://mfrv2.moh.gov.et/#/facility/detail/' + cleanPhone + '" target="_blank" style="color:#10b981; text-decoration:underline;">View Details</a>';
+        hint.innerHTML = svgValid + ' <a href="https://mfrpublic.moh.gov.et/facilities/' + encodeURIComponent(cleanPhone) + '" target="_blank" rel="noopener noreferrer" style="color:#10b981; text-decoration:underline;">View Details</a>';
         hint.className = 'phone-hint phone-valid';
         facilityModeFacilities = operationalFacs;
         facilityModeCurrentZone = operationalFacs[0].zone;
