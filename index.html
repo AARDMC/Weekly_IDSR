@@ -1022,8 +1022,8 @@ function getCategory(type, owner, name) {
   if (t.includes('health post') && o === 'public/government') return 'gov_hp';
   if (t.includes('health center') && o === 'public/government') return 'gov_hc';
   
-  // Explicitly catch ALERT and Gandhi, and allow "other government"
-  if ((t.includes('hospital') && (o === 'public/government' || o === 'other government')) || n.includes('gandhi') || n.includes('alert')) return 'gov_hosp';
+  // Explicitly catch AaBET, ALERT and Gandhi, and allow "other government"
+  if ((t.includes('hospital') && (o === 'public/government' || o === 'other government')) || n.includes('gandhi') || n.includes('alert') || n.includes('aabet')) return 'gov_hosp';
   
   if (o.includes('not for profit')) return 'ngo';
   
